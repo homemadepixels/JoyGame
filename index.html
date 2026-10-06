@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* Layout: one centered game screen in a chunky console bezel, key legend underneath. Single committed night-arcade look. */
+/* Layout: one centered game screen in a chunky console bezel. Single committed night-arcade look. */
 :root{
   --night:#1c1d4a; --night-2:#2c2e72; --bezel:#0d0e2b;
   --ink:#f7f3ff; --muted:#b9b6e8; --sun:#ffd23f; --berry:#ff4d6d; --leaf:#5ed33a;
@@ -83,12 +83,6 @@ canvas#game{display:block; width:100%; height:100%; image-rendering:pixelated; i
 @keyframes blink{50%{opacity:0}}
 @media (prefers-reduced-motion: reduce){.blink{animation:none}}
 #portrait{width:16cqw; image-rendering:pixelated}
-.legend{
-  display:flex; flex-wrap:wrap; justify-content:center; gap:10px 22px; max-width:1000px;
-  font-size:16px; color:var(--muted);
-}
-.legend span{display:inline-flex; align-items:center; gap:6px}
-.touch-legend{display:none}
 /* Touch controls: hidden on keyboard devices, a handheld-style layout on phones */
 .console{display:contents}
 .pad{display:none}
@@ -101,8 +95,6 @@ body.touch .console{
 }
 body.touch .screen{grid-area:screen; width:min(100%, calc((100dvh - 280px) * 5 / 3))}
 body.touch .pad{display:flex; gap:12px; touch-action:none}
-body.touch .legend.keys{display:none}
-body.touch .touch-legend{display:flex}
 .pad-left{grid-area:left; justify-self:start; align-items:center}
 .pad-right{grid-area:right; justify-self:end; flex-direction:column; align-items:flex-end}
 .dpad{display:flex; gap:6px; padding:6px; border-radius:16px; background:var(--bezel); touch-action:none; box-shadow:0 0 0 3px var(--night-2)}
@@ -126,16 +118,12 @@ body.touch .touch-legend{display:flex}
 .mini.off{opacity:.45}
 .round:focus-visible, .mini:focus-visible{outline:3px solid var(--sun); outline-offset:2px}
 @media (orientation: landscape){
-  body.touch h1, body.touch .legend{display:none}
+  body.touch h1{display:none}
   body.touch main{padding-block:8px}
   body.touch .console{grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"left screen right"}
   body.touch .screen{width:min(100%, calc((100dvh - 24px) * 5 / 3))}
   body.touch .pad-right{justify-content:center}
   body.touch .actions{flex-direction:column; align-items:center}
-}
-kbd{
-  font-family:var(--pixel); font-size:10px; color:var(--ink); background:var(--night-2);
-  border:2px solid var(--bezel); border-bottom-width:4px; border-radius:4px; padding:5px 7px 4px;
 }
 </style>
 </head>
@@ -177,18 +165,6 @@ kbd{
       <button class="round jump" id="btnJump" type="button">JUMP</button>
     </div>
   </div>
-  </div>
-  <div class="legend touch-legend">
-    <span>Arrows move</span><span>JUMP, hold for higher</span><span>RUN switches running on and off</span><span>Hold SNIFF to sniff the ground</span><span>With a teddy bear: hold JUMP while falling to float</span>
-  </div>
-  <div class="legend keys">
-    <span><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> move</span>
-    <span><kbd>SPACE</kbd> or <kbd>↑</kbd> jump (hold for higher)</span>
-    <span><kbd>SHIFT</kbd> run</span>
-    <span><kbd>S</kbd> or <kbd>↓</kbd> sniff</span>
-    <span>With a teddy bear: hold jump while falling to float</span>
-    <span><kbd>P</kbd> pause</span>
-    <span><kbd>M</kbd> sound</span>
   </div>
 </main>
 
@@ -391,36 +367,42 @@ const BURR = [0, 1].map(f => sprite(16, 13, '#1e2e0c', r => {
   r('#2b3a10', 6, 4, 2, 1); r('#2b3a10', 10, 4, 2, 1);
   r('#3a2a10', f ? 4 : 5, 11, 2, 1); r('#3a2a10', f ? 10 : 9, 11, 2, 1);
 }));
-// Frog: a plump frog sitting upright, twice the old height so it is easy to spot
-const FROG = [0, 1].map(j => {
-  const [c, g] = mk(24, 28);
-  const R = (col, x, y, w = 1, h = 1) => { g.fillStyle = col; g.fillRect(x + 1, y + 1, w, h); };
-  const ell = (cx, cy, rx, ry, col) => { g.fillStyle = col; for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) { const dx = (x + .5 - cx) / rx, dy = (y + .5 - cy) / ry; if (dx * dx + dy * dy <= 1) g.fillRect(x + 1, y + 1, 1, 1); } };
-  const G = '#3cc46b', S = '#2a9a52', D = '#1e6e3a', L = '#8af0a8', B = '#ffe58a', BS = '#f0c95a';
-  const up = j ? -3 : 0;
-  if (!j) {
-    ell(5, 19, 5.5, 4.5, S); ell(5, 18, 4.5, 3.5, G);           // big back thigh
-    R(S, 0, 22, 11, 2); R(D, 0, 23, 3, 1); R(D, 8, 23, 3, 1);   // back foot and toes
-  } else {
-    // legs kicked out behind and below while hopping
-    for (let k = 0; k < 7; k++) R(S, 6 - k, 15 + k, 3, 2);
-    R(S, 0, 22, 5, 2); R(D, 0, 23, 2, 1);
-  }
-  ell(10, 14 + up, 8, 8.5, G);                                  // body
-  ell(13.5, 16 + up, 4.5, 6, B); ell(14.5, 18 + up, 3, 4, BS);  // cream belly
-  ell(11, 8 + up, 8.5, 5.5, G);                                 // head
-  ell(9, 6 + up, 5, 2, L);                                      // shine along the head
-  R(L, 4, 10 + up, 3, 1); R(L, 3, 12 + up, 2, 1);
-  R(D, 5, 14 + up, 2, 2); R(D, 8, 17 + up, 2, 2); R(D, 4, 18 + up, 1, 1);   // back spots
-  ell(10.5, 3 + up, 3, 3, G); ell(16, 3.5 + up, 3, 3, G);      // eye bumps
-  R('#ffffff', 9, 1 + up, 3, 3); R('#111111', 11, 2 + up, 1, 2);
-  R('#ffffff', 15, 2 + up, 3, 3); R('#111111', 17, 3 + up, 1, 2);
-  R(D, 12, 11 + up, 8, 1); R(D, 19, 10 + up, 1, 1);            // smile
-  R('#ff9fb2', 17, 9 + up, 2, 1);                               // cheek
-  if (!j) { R(S, 14, 18, 3, 5); R(G, 14, 18, 1, 4); R(S, 13, 22, 7, 2); R(D, 19, 23, 1, 1); R(D, 16, 23, 1, 1); }   // front arm and hand
-  else { R(S, 15, 13 + up, 4, 2); R(S, 18, 12 + up, 2, 3); }
-  return outline(c, '#0f3a1e');
-});
+// Frog: a small frog sitting upright, the same size as the teddy bear (12 x 15)
+const FROG_PAL = { g: '#3cc46b', s: '#2a9a52', d: '#1e6e3a', l: '#8af0a8', b: '#ffe58a', B: '#f0c95a', w: '#ffffff', k: '#111111', p: '#ff9fb2' };
+const FROG = [
+  fromRows([
+    '....gg..gg..',
+    '...gwkggwkg.',
+    '..lgwwggwwg.',
+    '.lgggggggggg',
+    '.gggggggpggg',
+    '.ggddddddddg',
+    '.gggggggggg.',
+    'ggsgggbbbbg.',
+    'gsdgggbbbbbg',
+    'gsggggbbbbbg',
+    'ssggggbBBbbg',
+    'sssgggbBBsgg',
+    'ssssggsbbsg.',
+    '.sssss.ssss.',
+    'dsssdd..dssd'], FROG_PAL, '#0f3a1e'),
+  fromRows([
+    '....gg..gg..',
+    '...gwkggwkg.',
+    '..lgwwggwwg.',
+    '.lgggggggggg',
+    '.gggggggpggg',
+    '.ggddddddddg',
+    '.gggggggggg.',
+    'sgsgggbbbbg.',
+    'ssggggbbbbbg',
+    '.sgggggbbbg.',
+    '..ssgggggs..',
+    '...ss...ss..',
+    '....ss...ss.',
+    '.....ss...s.',
+    '.....dd...dd'], FROG_PAL, '#0f3a1e')
+];
 const CRUSH = [0, 1].map(angry => sprite(24, 24, '#1e1633', r => {
   r('#7a6fa3', 0, 0, 24, 24); r('#a99fd0', 1, 1, 22, 2); r('#a99fd0', 1, 1, 2, 22); r('#5a5080', 1, 21, 22, 2); r('#5a5080', 21, 1, 2, 22);
   [[4, 3], [18, 3], [4, 19], [18, 19]].forEach(([x, y]) => r('#5a5080', x, y, 2, 2));
@@ -1111,7 +1093,7 @@ const BEE_DROP = 10; // bees fly side to side only, set a little lower so they a
 function resetWorld() {
   enemies = spawns.map(s => {
     if (s.type === 'bee') return { type: 'bee', bx: s.x, by: s.y + BEE_DROP, x: s.x, y: s.y + BEE_DROP, w: 14, h: 12, t: Math.random() * 300, dead: false, dt: 0, face: 1 };
-    const big = s.type === 'frog', w = big ? 18 : 14, h = big ? 24 : 12;
+    const frog = s.type === 'frog', w = frog ? 12 : 14, h = frog ? 15 : 12;
     return { type: s.type, x: s.x, y: s.y + 12 - h, w, h, vx: 0, vy: 0, dir: -1, dead: false, dt: 0, ground: false, t: Math.random() * 60 };
   });
   crushers = crusherSpawns.map(c => ({ x: c.x, y: c.y, y0: c.y, w: 24, h: 24, state: 'wait', t: 0, vy: 0 }));
