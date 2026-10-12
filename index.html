@@ -112,6 +112,7 @@ body.touch .pad{display:flex; gap:12px; touch-action:none}
 .run{width:var(--btn); background:var(--night-2); color:var(--muted)}
 .stack{display:flex; flex-direction:column; align-items:center; gap:10px}
 .sniff{width:var(--btn); background:#8a5a2b; color:#fff6e0; font-size:calc(var(--btn) * .13)}
+.sniff.roll{background:#4aa6e6; color:#ffffff; box-shadow:0 5px 0 var(--bezel), 0 0 0 3px #d8f4ff}
 .run[aria-pressed="true"]{background:var(--sun); color:var(--bezel)}
 .round.on{transform:translateY(4px); box-shadow:0 1px 0 var(--bezel)}
 .mini{min-width:44px; height:36px; border-radius:8px; background:var(--night-2); font-size:11px; border-width:2px}
@@ -253,6 +254,22 @@ const DOG = {
   run: [0, 1, 2, 3].map(i => dogSprite('run', i)), jump: dogSprite('jump', 0), fall: dogSprite('fall', 0),
   sniff: [dogSprite('sniff', 0), dogSprite('sniff', 1)]
 };
+// lying on her back with her legs kicking in the air (used while rolling the soap off)
+function dogBack(f) {
+  const [c, g] = mk(28, 24);
+  const r = (col, x, y, w = 1, h = 1) => { g.fillStyle = col; g.fillRect(x + 1, y + 4, w, h); };
+  // four legs kicking in the air: black near the body, tan below, like her standing legs
+  const lens = f ? [4, 7, 7, 4] : [7, 4, 4, 7];
+  [2, 5, 10, 13].forEach((x, i) => { const L = lens[i], top = 11 - L; r(C.K, x, 9, 2, 2); r(C.T, x, top, 2, L - 2); r(C.t, x, top, 2, 1); });
+  if (f) { r(C.K, 0, 12, 2, 1); r(C.K, 0, 11, 1, 1); } else r(C.K, 0, 13, 2, 1);   // wagging tail
+  r(C.K, 1, 11, 15, 5); r(C.G, 2, 15, 12, 1);                                        // body, back on the ground
+  r(C.T, 4, 11, 9, 1); r(C.t, 6, 11, 5, 1);                                          // tan belly facing up
+  r(C.K, 16, 10, 6, 6); r(C.K, 22, 12, 3, 3); r(C.N, 25, 13, 1, 2); r(C.T, 22, 11, 3, 1);   // head and snout
+  r(C.E, 18, 12, 2, 2); r(C.W, 19, 13, 1, 1); r(C.T, 18, 14, 2, 1); r(C.P, 23, 15, 1, 2);    // eye, brow, tongue
+  r(C.K, 17, 16, 7, 1); r(C.K, 19, 17, 6, 1); r(C.T, 20, 16, 3, 1);                  // big ears flat on the ground
+  return outline(c, '#0d0912');
+}
+DOG.back = [dogBack(0), dogBack(1)];
 // "sniff" callout, lowercase pixel letters drawn at double size
 const SNIFF_TXT = (() => {
   const rows = ['..........#..##..##', '............#...#..', '.###.###..#.###.###', '#....#..#.#.#...#..', '.##..#..#.#.#...#..', '...#.#..#.#.#...#..', '###..#..#.#.#...#..'];
@@ -803,6 +820,32 @@ function drawBG2(mid) {
     if (first) { sgt.draw(ctx); first = false; } else blend(sgt.draw, w);
   }
 }
+/* ---------- soapy water: bubble sprites, surface foam and rising bubbles ---------- */
+function soapBubble(r) {
+  const sz = r * 2 + 3, [c, g] = mk(sz, sz), d = g.createImageData(sz, sz), o = r + 1;
+  const put = (x, y, col, a) => { const i = (y * sz + x) * 4, [R, G, B] = hex(col); d.data[i] = R; d.data[i + 1] = G; d.data[i + 2] = B; d.data[i + 3] = a; };
+  for (let y = 0; y < sz; y++) for (let x = 0; x < sz; x++) {
+    const dx = x - o, dy = y - o, dist = Math.hypot(dx, dy);
+    if (dist > r + .5) continue;
+    if (dist > r - .7) { const ang = Math.atan2(dy, dx); put(x, y, ang > .2 && ang < 1.4 ? '#ffb3e6' : ang >= 1.4 && ang < 2.6 ? '#a8f0ff' : '#ffffff', 235); }
+    else put(x, y, '#e6f8ff', 70);
+  }
+  const hx = Math.round(o - r * .45), hy = Math.round(o - r * .45);
+  put(hx, hy, '#ffffff', 255); if (r >= 4) put(hx + 1, hy, '#ffffff', 220);
+  g.putImageData(d, 0, 0); return c;
+}
+const BUBBLES = [1.5, 2, 3, 4, 5, 6].map(soapBubble);
+function soapFor(w) {
+  if (w.foam) return w;
+  const R = rng(77 + w.x0), foam = [], rise = [];
+  for (let x = w.x0; x < w.x1;) {
+    const n = 1 + Math.floor(R() * 3);
+    for (let k = 0; k < n; k++) { const pick = R(); foam.push({ x: x + R() * 7, r: pick < .45 ? 1 : pick < .75 ? 2 : pick < .92 ? 3 : 4, dy: -R() * 2.5, ph: R() * 6.28, sp: (R() - .5) * .08, pop: Math.floor(R() * 900) }); }
+    x += 4 + R() * 9;
+  }
+  for (let i = 0; i < Math.round((w.x1 - w.x0) / 60); i++) rise.push({ x: w.x0 + R() * (w.x1 - w.x0), y: w.y + R() * (H - w.y), v: .25 + R() * .35, r: R() < .6 ? 0 : 1, ph: R() * 6.28 });
+  w.foam = foam; w.rise = rise; return w;
+}
 function waterAt(x, y) { for (const w of waters) if (x >= w.x0 && x < w.x1 && y > w.y) return w; return null; }
 
 /* ---------- level ---------- */
@@ -854,6 +897,7 @@ function buildLevel() {
   // 2. Lagoon: water fills the bottom of the screen. She moves at half speed in it, nothing else happens,
   //    and every platform is low enough to jump onto from the sandy floor.
   sand(59, 63); hyd(60);
+  map[9][63] = 3;                                       // block at the water's edge: hop onto it, then into the lagoon
   waters.push({ x0: 64 * T, x1: 122 * T, y: 144 });
   for (let x = 64; x <= 121; x++) map[11][x] = 20;
   lily(67, 2); rock(71, 1, 8, 10); lily(74, 2);
@@ -869,6 +913,7 @@ function buildLevel() {
 
   // 3. Jungle Canopy (Donkey Kong Country / Forest of Illusion)
   sand(122, 127);
+  map[9][122] = 3;                                      // block at the far edge of the lagoon
   ground(128, 140); hyd(129);
   prop(JTREE, 131, 160); en('frog', 137);
   leaf(141, 3, 7); [141, 142, 143].forEach(x => bone(x, 6));               // pit at 141-143
@@ -1047,6 +1092,9 @@ const SFX = {
   bone: () => { const n = [988, 1047, 1175, 1319][boneNote++ % 4]; tone(n, .06, 'square', .04); tone(n * 1.5, .12, 'square', .04, 0, .05); },
   fern: () => [392, 523, 659, 784, 1047, 1319].forEach((n, i) => tone(n, .1, 'square', .04, 0, i * .05)),
   fernFound: () => [784, 988, 1175, 1568].forEach((n, i) => { tone(n, .18, 'triangle', .1, 0, i * .07); tone(n * 2, .08, 'square', .02, 0, i * .07); }),
+  roll: () => { tone(180, .3, 'triangle', .09, 1.8); tone(260, .2, 'triangle', .05, 1.5, .25); },
+  clean: () => [784, 988, 1175, 1568, 1976].forEach((n, i) => tone(n, .12, 'triangle', .07, 0, i * .06)),
+  pop: () => tone(1500 + Math.random() * 600, .03, 'square', .012, .6),
   splash: () => { tone(500, .18, 'triangle', .08, .35); tone(1200, .06, 'square', .015, .4, .03); },
   sprout: () => tone(220, .35, 'triangle', .12, 3),
   hurt: () => { tone(600, .25, 'square', .05, .3); tone(300, .25, 'triangle', .1, .3, .05); },
@@ -1084,8 +1132,9 @@ function startMusic() { if (!ac) return; musicOn = true; nextNote = ac.currentTi
 /* ---------- game state ---------- */
 const P = { x: 0, y: 0, w: 16, h: 15, vx: 0, vy: 0, face: 1, ground: false, coy: 0, jb: 0, dead: false, deadT: 0, anim: 0, on: null, hidden: false, fern: false, inv: 0, glide: false };
 let state = 'title', tick = 0, camX = 0, enemies = [], crushers = [], parts = [], pops = [], bumps = [], debris = [], crumbles = new Map();
+const ROLL_LEN = 70, SOAP_ROLLS = 3; let soapTipShown = false, lastSoapy = null;
 let fernTipShown = false, fernsGot = 0, count = 0, fernCount = 0, frames = 0, cp, goalT = 0, pausedFrom = null, shake = 0, toastT = 0, toldFern = false;
-const keys = { left: false, right: false, jump: false, run: false, sniff: false }; let jumpPressed = false;
+const keys = { left: false, right: false, jump: false, run: false, sniff: false }; let jumpPressed = false, sniffPressed = false;
 const tk = { left: false, right: false, jump: false, sniff: false }; let runToggle = false;
 const jumpHeld = () => keys.jump || tk.jump;
 
@@ -1108,7 +1157,7 @@ function newGame() {
 }
 function spawnPlayer() {
   resetWorld();
-  Object.assign(P, { x: cp.x, y: cp.y, vx: 0, vy: 0, face: 1, dead: false, deadT: 0, ground: false, on: null, hidden: false, coy: 0, jb: 0, fern: false, inv: 0, glide: false, hopped: false, sniff: false, wet: false });
+  Object.assign(P, { x: cp.x, y: cp.y, vx: 0, vy: 0, face: 1, dead: false, deadT: 0, ground: false, on: null, hidden: false, coy: 0, jb: 0, fern: false, inv: 0, glide: false, hopped: false, sniff: false, wet: false, soap: 0, roll: 0, sniffWas: false });
   camX = clamp(P.x - W / 2 + 40, 0, COLS * T - W);
 }
 function respawnAfterDeath() {
@@ -1142,6 +1191,17 @@ function headHit(tx, ty) {
 }
 function burst(x, y, n, cols, sp = 1.6, life = 22) {
   for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = Math.random() * sp + .4; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - .6, life, max: life, col: cols[i % cols.length], g: .06 }); }
+}
+function getSoapy() {
+  P.soap = SOAP_ROLLS; P.roll = 0;
+  if (!soapTipShown) { soapTipShown = true; toast(isTouch() ? 'Soapy! Press ROLL to roll the bubbles off.' : 'Soapy! Press S or the down arrow to roll the bubbles off.', 260); }
+}
+function shedBubbles(n) {
+  for (let i = 0; i < n; i++) parts.push({ bubble: true, r: Math.random() < .6 ? 1 : 2, x: P.x + P.w / 2 + (Math.random() - .5) * 18, y: P.y + 2 + Math.random() * 8, vx: (Math.random() - .5) * .8, vy: -.35 - Math.random() * .5, life: 28 + Math.random() * 30, max: 60, g: 0, ph: Math.random() * 6 });
+}
+const SOAP_SPOTS = [[8, 12], [17, 4], [12, 12], [21, 8], [5, 11], [15, 1]];
+function stuckBubbles(ox, oy, n) {
+  for (let i = 0; i < n; i++) { const [x, y] = SOAP_SPOTS[i], img = BUBBLES[i === 0 || i === 3 ? 2 : 1]; ctx.drawImage(img, ox + x - (img.width >> 1), oy + y - (img.height >> 1) + Math.round(Math.sin(tick * .1 + i) * .6)); }
 }
 function splash(x, y, big) {
   for (let i = 0; i < (big ? 12 : 6); i++) parts.push({ x: x + (Math.random() - .5) * 10, y, vx: (Math.random() - .5) * 2, vy: -1 - Math.random() * (big ? 2 : 1.2), life: 26, max: 26, col: i % 2 ? '#d8f4ff' : '#8fdcff', g: .12 });
@@ -1188,7 +1248,8 @@ function updateEnemies() {
     }
     e.vy = Math.min(e.vy + (e.type === 'frog' ? .3 : .4), 6);
     if (e.type === 'frog') {
-      if (e.ground) { e.vx = 0; e.t++; e.dir = (P.x > e.x) ? 1 : -1; if (e.t > 75) { e.vy = -5; e.vx = e.dir * 1.1; e.t = 0; e.ground = false; } }
+      if (e.ground) { e.vx = 0; e.t++; e.dir = (P.x > e.x) ? 1 : -1; if (e.t > 75) { e.vy = -5 * Math.SQRT1_2;   // half the old hop height (height grows with the square of the push)
+         e.vx = e.dir * 1.1; e.t = 0; e.ground = false; } }
       moveX(e, e.vx); if (e.hitWall) e.vx = 0;
     } else {
       moveX(e, e.dir * (e.type === 'burr' ? .4 : .45)); if (e.hitWall) e.dir *= -1;
@@ -1209,16 +1270,33 @@ function updatePlayer() {
   if (p.inv > 0) p.inv--;
   let L = keys.left || tk.left, R = keys.right || tk.right, run = keys.run || runToggle, jp = jumpPressed, jh = jumpHeld();
   if (state === 'goal') { L = false; R = Math.abs(p.x + p.w / 2 - house.door) > 2 && p.x + p.w / 2 < house.door; run = false; jp = false; jh = false; }
-  // sniff: hold to stop and put her nose to the ground (jumping cancels it)
-  p.sniff = state === 'play' && (keys.sniff || tk.sniff) && p.ground && !jp;
+  // sniff: hold to stop and put her nose to the ground (jumping cancels it).
+  // While she is soapy the same button rolls instead: one press, two rolls, and she is clean.
+  const sniffHeld = keys.sniff || tk.sniff, sniffTap = sniffPressed || (sniffHeld && !p.sniffWas); p.sniffWas = sniffHeld;
+  if (p.soap > 0) {
+    p.sniff = false;
+    if (sniffTap && p.ground && !p.roll && state === 'play' && !waterAt(p.x + p.w / 2, p.y + p.h - 4)) { p.roll = 1; SFX.roll(); }
+  } else p.sniff = state === 'play' && sniffHeld && p.ground && !jp;
+  if (p.roll) {
+    // one press plays the roll twice in a row; the second roll finishes the job
+    L = false; R = false; run = false; jp = false; jh = false; p.roll++;
+    const cf = ((p.roll - 1) % ROLL_LEN) + 1;
+    if (cf === 32 || cf === 42 || cf === 52) shedBubbles(3);
+    if (p.roll === ROLL_LEN + 1) { p.soap = 1; shedBubbles(5); SFX.roll(); }
+    if (p.roll > ROLL_LEN * 2) {
+      p.roll = 0; p.soap = 0; shedBubbles(5);
+      toast('All clean!', 120); SFX.clean(); burst(p.x + p.w / 2, p.y, 12, ['#ffffff', '#a8f0ff', '#ffb3e6'], 1.8, 26);
+    }
+  }
   if (p.sniff) {
     L = false; R = false; run = false;
     if (tick % 14 === 0) parts.push({ x: p.x + p.w / 2 + p.face * 12, y: p.y + p.h - 3, vx: p.face * (.2 + Math.random() * .3), vy: -.25 - Math.random() * .2, life: 22, max: 22, col: '#fff1d6', g: 0 });
   }
   // in water she moves at half speed; nothing else changes
-  const wet = !!waterAt(p.x + p.w / 2, p.y + p.h - 4), sp = wet ? .5 : 1;
+  const wet = !!waterAt(p.x + p.w / 2, p.y + p.h - 4), sp = (wet || p.soap > 0) ? .5 : 1;   // soapy fur also slows her to half speed
   const max = (run ? 2.6 : 1.6) * sp, acc = (p.ground ? (run ? .2 : .16) : .12) * sp;
-  if (wet !== !!p.wet) { const wv = waterAt(p.x + p.w / 2, H - 1); if (wv) splash(p.x + p.w / 2, wv.y, wet); p.wet = wet; }
+  if (wet !== !!p.wet) { const wv = waterAt(p.x + p.w / 2, H - 1); if (wv) splash(p.x + p.w / 2, wv.y, wet); if (!wet && wv) getSoapy(); p.wet = wet; }
+  if (p.soap > 0 && !wet && tick % 16 === 0) shedBubbles(1);   // bubbles keep floating off her and popping
   if (wet && tick % 18 === 0) parts.push({ x: p.x + p.w / 2 + p.face * 8, y: p.y + 2, vx: (Math.random() - .5) * .3, vy: -.6, life: 30, max: 30, col: '#e6f8ff', g: 0 });
   if (L && !R) { if (p.vx > -max) p.vx = Math.max(-max, p.vx - acc); p.face = -1; }
   else if (R && !L) { if (p.vx < max) p.vx = Math.min(max, p.vx + acc); p.face = 1; }
@@ -1301,7 +1379,10 @@ function step() {
   for (const b of bumps) b.t++; bumps = bumps.filter(b => b.t < 10);
   for (const o of pops) { o.y += o.vy; o.vy += .22; o.life--; if (o.life === 0) burst(o.x + 7, o.y + 4, 6, ['#fff6cc', '#ffd23f'], 1.2, 14); }
   pops = pops.filter(o => o.life > 0);
-  for (const q of parts) { q.x += q.vx; q.y += q.vy; q.vy += q.g; q.life--; }
+  for (const q of parts) { q.x += q.vx + (q.bubble ? Math.sin(tick * .1 + q.ph) * .15 : 0); q.y += q.vy; q.vy += q.g; q.life--; }
+  let popped = 0;
+  for (const q of parts) if (q.bubble && q.life <= 0) { popped++; for (const [a, b] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) parts.push({ x: q.x + a, y: q.y + b, vx: a * .3, vy: b * .3, life: 6, max: 6, col: '#ffffff', g: 0 }); }
+  if (popped && Math.random() < .5) SFX.pop();
   parts = parts.filter(q => q.life > 0);
   enemies = enemies.filter(e => !e.dead || e.dt < 40);
   if (!P.dead) {
@@ -1310,7 +1391,7 @@ function step() {
   }
   if (shake > 0) shake--;
   if (toastT > 0 && --toastT === 0) toastEl.hidden = true;
-  jumpPressed = false;
+  jumpPressed = false; sniffPressed = false;
   updateHUD();
 }
 
@@ -1334,7 +1415,7 @@ function render() {
   const t0 = Math.max(0, Math.floor(cx / T)), t1 = Math.min(COLS - 1, Math.floor((cx + W) / T));
   const fam = t => t === 1 || t === 2 ? 1 : t === 7 || t === 8 ? 7 : (t === 18 || t === 19) ? 10 : t === 21 ? 20 : t === 27 ? 26 : t;
   // water body behind everything in front of the sky
-  for (const w of waters) { const x0 = w.x0 - cx, x1 = w.x1 - cx; if (x1 < 0 || x0 > W) continue; ctx.fillStyle = '#2a8ad8'; ctx.fillRect(x0, w.y, x1 - x0, H - w.y); ctx.fillStyle = '#2479c4'; ctx.fillRect(x0, w.y + 22, x1 - x0, H - w.y - 22); }
+  for (const w of waters) { const x0 = w.x0 - cx, x1 = w.x1 - cx; if (x1 < 0 || x0 > W) continue; ctx.fillStyle = '#4aa6e6'; ctx.fillRect(x0, w.y, x1 - x0, H - w.y); ctx.fillStyle = '#3d96d8'; ctx.fillRect(x0, w.y + 22, x1 - x0, H - w.y - 22); }
   for (const pr of props) {
     const px = pr.x - cx; if (px < -pr.img.width || px > W) continue;
     if (pr.glow) { ctx.globalAlpha = .22 + .05 * Math.sin(tick * .1 + pr.x); ctx.drawImage(GLOW, px + 9 - 20, pr.y + 8 - 20); ctx.globalAlpha = 1; }
@@ -1374,14 +1455,33 @@ function render() {
   for (const e of enemies) drawEnemy(e, cx);
   if (!P.hidden && !(P.inv > 0 && Math.floor(P.inv / 4) % 2)) drawDog(cx);
   for (const q of parts) {
+    if (q.bubble) { const img = BUBBLES[q.r]; ctx.drawImage(img, Math.round(q.x - cx) - (img.width >> 1), Math.round(q.y) - (img.height >> 1)); continue; }
     if (q.heart) { ctx.globalAlpha = Math.min(1, q.life / 30); ctx.drawImage(HEART, Math.round(q.x - cx), Math.round(q.y)); ctx.globalAlpha = 1; continue; }
     ctx.fillStyle = q.col; const s = q.life > q.max / 2 ? 2 : 1; ctx.fillRect(Math.round(q.x - cx), Math.round(q.y), s, s);
   }
   // water surface in front, so she looks like she is swimming
-  for (const w of waters) {
+  for (const w0 of waters) {
+    const w = soapFor(w0), span = w.x1 - w.x0;
     const x0 = Math.max(0, w.x0 - cx), x1 = Math.min(W, w.x1 - cx); if (x1 <= x0) continue;
-    ctx.globalAlpha = .38; ctx.fillStyle = '#5cc4ff'; ctx.fillRect(x0, w.y, x1 - x0, H - w.y); ctx.globalAlpha = 1;
-    for (let x = x0; x < x1; x++) { const yy = w.y + Math.round(Math.sin((x + cx) * .15 + tick * .08)); ctx.fillStyle = '#d8f4ff'; ctx.fillRect(x, yy - 1, 1, 2); if (((x + cx + (tick >> 3)) % 23) < 3) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, yy - 2, 1, 1); } }
+    const wave = wx => w.y + Math.round(Math.sin(wx * .15 + tick * .08));
+    // small bubbles drifting up from the lagoon floor
+    for (const b of w.rise) {
+      b.y -= b.v; if (b.y < w.y + 2) { b.y = H - 2; b.x = w.x0 + ((b.x - w.x0 + 97) % span); }
+      const sx = Math.round(b.x - cx + Math.sin(tick * .06 + b.ph) * 1.5); if (sx < -8 || sx > W + 8) continue;
+      const img = BUBBLES[b.r]; ctx.drawImage(img, sx - (img.width >> 1), Math.round(b.y) - (img.height >> 1));
+    }
+    ctx.globalAlpha = .4; ctx.fillStyle = '#a8e4ff'; ctx.fillRect(x0, w.y, x1 - x0, H - w.y); ctx.globalAlpha = 1;
+    // sudsy foam line
+    for (let x = x0; x < x1; x++) { const yy = wave(x + cx); ctx.fillStyle = '#f2fbff'; ctx.fillRect(x, yy - 1, 1, 3); if (((x + cx + (tick >> 3)) % 11) < 2) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, yy - 2, 1, 1); } }
+    // soap bubbles sitting on the surface: they bob, drift, and now and then pop and come back
+    for (const b of w.foam) {
+      const bx = w.x0 + (((b.x - w.x0 + tick * b.sp) % span) + span) % span, sx = Math.round(bx - cx);
+      if (sx < -10 || sx > W + 10) continue;
+      const pt = (tick + b.pop) % 900;
+      if (pt < 18) { if (pt < 6) { ctx.fillStyle = '#ffffff'; const yy = wave(bx) - 3; [[-3, 0], [3, 0], [0, -3], [-2, -2], [2, -2]].forEach(([a, c]) => ctx.fillRect(sx + a, yy + c, 1, 1)); } continue; }
+      const img = BUBBLES[b.r], rr = img.width >> 1;
+      ctx.drawImage(img, sx - rr, wave(bx) - Math.round(rr * 1.3) + Math.round(b.dy + Math.sin(tick * .05 + b.ph)));
+    }
   }
   ctx.restore();
 }
@@ -1404,8 +1504,23 @@ function drawEnemy(e, cx) {
   else { ctx.scale(dir > 0 ? 1 : -1, 1); ctx.drawImage(img, -hw, ey + e.h - img.height + 1); }
   ctx.restore();
 }
+function drawRoll(cx) {
+  const p = P, f = ((p.roll - 1) % ROLL_LEN) + 1, dx = Math.round(p.x + p.w / 2 - cx), base = Math.round(p.y + p.h), q = Math.PI / 2;
+  let img, ang = 0, sx = 0;
+  if (f < 12) img = DOG.sniff[0];                                        // face to the ground
+  else if (f < 20) { img = DOG.idle[0]; ang = (f - 12) / 8 * q; }          // tip over
+  else if (f < 26) { img = DOG.back[0]; ang = -(26 - f) / 6 * q; }         // land on her back
+  else if (f < 58) { img = DOG.back[Math.floor(f / 4) % 2]; sx = Math.floor(f / 3) % 2 ? 1 : -1; }   // wiggle
+  else if (f < 64) { img = DOG.back[0]; ang = -(f - 58) / 6 * q; }         // roll back onto her side
+  else { img = DOG.idle[0]; ang = (ROLL_LEN - f) / 6 * q; }                // stand up
+  ctx.save(); ctx.translate(dx, base - 11); ctx.scale(p.face, 1); ctx.rotate(ang);
+  ctx.drawImage(img, -13 + sx, -11);
+  if (p.soap > 0) stuckBubbles(-13 + sx, -11, p.soap * 2);
+  ctx.restore();
+}
 function drawDog(cx) {
   const p = P; let img;
+  if (p.roll && !p.dead) { drawRoll(cx); return; }
   if (p.dead) img = DOG.fall;
   else if (p.sniff && p.ground) img = DOG.sniff[Math.floor(tick / 8) % 2];
   else if (state === 'title' || (p.ground && Math.abs(p.vx) < .2)) { const b = (tick % 200) < 8; img = b ? DOG.blink : DOG.idle[Math.floor(tick / 20) % 2]; }
@@ -1417,6 +1532,7 @@ function drawDog(cx) {
   ctx.scale(p.face, flipY ? -1 : 1);
   const top = flipY ? -11 : dy;
   ctx.drawImage(img, -13, top);
+  if (p.soap > 0 && !p.dead) stuckBubbles(-13, top + (p.sniff ? 6 : 0), p.soap * 2);
   if (p.fern && !p.dead) {
     if (p.glide) ctx.drawImage(TEDDY_WAVE[Math.floor(tick / 6) % 2], -13 + 18, top + 10);
     else ctx.drawImage(TEDDY_MINI, -13 + 19 + (p.sniff ? 2 : 0), top + 10 + (p.sniff ? 6 : 0));
@@ -1445,6 +1561,8 @@ function paintMeter() {
 const fmt = f => { const s = Math.floor(f / 60); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 function updateHUD() {
   paintMeter();
+  const soapy = P.soap > 0;
+  if (soapy !== lastSoapy) { lastSoapy = soapy; btnSniff.textContent = soapy ? 'ROLL' : 'SNIFF'; btnSniff.classList.toggle('roll', soapy); btnSniff.setAttribute('aria-label', soapy ? 'Roll' : 'Sniff'); }
   const s = count + '|' + fernCount + '|' + fmt(frames); if (s === lastHud) return; lastHud = s;
   hb.textContent = 'x' + String(count).padStart(2, '0'); hf.textContent = 'x' + fernCount; ht.textContent = 'TIME ' + fmt(frames);
 }
@@ -1497,7 +1615,7 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { toggleSound(); return; }
-  if (k) { if (k === 'jump' && !keys.jump) jumpPressed = true; keys[k] = true; }
+  if (k) { if (k === 'jump' && !keys.jump) jumpPressed = true; if (k === 'sniff' && !keys.sniff) sniffPressed = true; keys[k] = true; }
 });
 addEventListener('keyup', e => { const k = KM[e.code]; if (k) keys[k] = false; });
 addEventListener('blur', () => { keys.left = keys.right = keys.jump = keys.run = keys.sniff = false; tk.sniff = false; dpPointers.clear(); jumpPointers.clear(); paintPad(); });
@@ -1532,7 +1650,7 @@ btnJump.addEventListener('pointerdown', e => {
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => btnJump.addEventListener(t, e => { jumpPointers.delete(e.pointerId); paintPad(); }));
 const btnSniff = document.getElementById('btnSniff'), sniffPointers = new Set();
 function paintSniff() { tk.sniff = sniffPointers.size > 0; btnSniff.classList.toggle('on', tk.sniff); }
-btnSniff.addEventListener('pointerdown', e => { e.preventDefault(); audio(); try { btnSniff.setPointerCapture(e.pointerId); } catch (_) {} sniffPointers.add(e.pointerId); paintSniff(); });
+btnSniff.addEventListener('pointerdown', e => { e.preventDefault(); audio(); if (!tk.sniff) sniffPressed = true; try { btnSniff.setPointerCapture(e.pointerId); } catch (_) {} sniffPointers.add(e.pointerId); paintSniff(); });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => btnSniff.addEventListener(t, e => { sniffPointers.delete(e.pointerId); paintSniff(); }));
 addEventListener('blur', () => { sniffPointers.clear(); paintSniff(); });
 function flipRun() { runToggle = !runToggle; btnRun.setAttribute('aria-pressed', String(runToggle)); }

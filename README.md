@@ -18,7 +18,7 @@ A bright, short platformer starring a black-and-tan pup with very big ears. Ther
 ### Level 2: Seaside
 
 1. **Sunny Beach** - sand, palm trees, beach umbrellas and walking crabs
-2. **Lagoon** - water fills the bottom of the screen. In the water she moves at half speed and sinks gently, with no other effects. Lily pads, rocks and small docks are low enough to jump onto from the lagoon floor.
+2. **Lagoon** - soapy water fills the bottom of the screen, with bubbles on the surface. In the water she moves at half speed and sinks gently. Lily pads, rocks and small docks are low enough to jump onto from the lagoon floor, and a block on each bank marks where the water starts and ends. When she climbs out she is covered in soap bubbles and moves at half speed until she rolls them off: press ROLL once and she rolls twice, then she is clean.
 3. **Jungle Canopy** - giant tree trunks, leafy platforms, frogs and a bounce block
 4. **Moonlit Cliffs** - rocky ledges at night, moving lifts and one falling stone crusher
 5. **Lantern Boardwalk** - a wooden boardwalk under the moon, frogs, a staircase, and the car
@@ -41,5 +41,6 @@ If she gets hit, all bones and teddy bears come back and the counts start over. 
 | Jump | Space or Up (hold for higher) | JUMP (hold for higher) |
 | Run | Shift | RUN (tap to switch on or off) |
 | Sniff | S or Down (hold) | SNIFF (hold) |
+| Roll off soap bubbles | S or Down (press) | ROLL (press) |
 | Pause | P | II |
 | Sound | M | Music note |
